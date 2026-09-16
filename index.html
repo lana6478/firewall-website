@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FireWall // Digital Perimeter Defense</title>
+<meta name="description" content="An interactive look at how firewalls work, their effects on network security, and why they are essential in modern cybersecurity.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#04070a;
+    --bg-1:#070c12;
+    --bg-2:#0b131c;
+    --panel:#0c141ded;
+    --border:#1c2b36;
+    --text:#c9d9e3;
+    --text-dim:#7d93a1;
+    --accent:#00ffc2;
+    --accent-2:#00b3ff;
+    --danger:#ff3b5c;
+    --warn:#ffb020;
+    --glow:0 0 20px rgba(0,255,194,0.35);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg-0);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    overflow-x:hidden;
+    position:relative;
+  }
+  ::selection{background:var(--accent);color:#001510;}
+
+  /* background layers */
+  #grid-canvas{position:fixed;inset:0;z-index:0;opacity:0.55;}
+  .noise-overlay{
+    position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(circle at 20% 20%, rgba(0,255,194,0.06), transparent 40%),
+               radial-gradient(circle at 80% 70%, rgba(0,179,255,0.07), transparent 45%);
+  }
+  .scanline{
+    position:fixed;inset:0;z-index:2;pointer-events:none;
+    background:repeating-linear-gradient(to bottom, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 2px, transparent 3px);
+  }
+
+  /* nav */
+  header{
+    position:fixed;top:0;left:0;right:0;z-index:50;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 6vw;
+    background:rgba(4,7,10,0.75);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+  }
+  .logo{
+    font-family:'Orbitron',sans-serif;font-weight:900;font-size:1.15rem;letter-spacing:2px;
+    display:flex;align-items:center;gap:10px;color:#fff;
+  }
+  .logo .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:var(--glow);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.5;transform:scale(1.3);}}
+  nav ul{list-style:none;display:flex;gap:34px;}
+  nav a{
+    color:var(--text-dim);text-decoration:none;font-size:0.85rem;letter-spacing:1px;
+    text-transform:uppercase;font-weight:600;transition:color .25s;position:relative;
+  }
+  nav a:hover{color:var(--accent);}
+  nav a::after{
+    content:'';position:absolute;left:0;bottom:-6px;width:0;height:1px;background:var(--accent);
+    transition:width .25s;
+  }
+  nav a:hover::after{width:100%;}
+  .nav-toggle{display:none;background:none;border:1px solid var(--border);color:var(--accent);padding:8px 10px;font-size:1rem;cursor:pointer;}
+
+  section{position:relative;z-index:5;padding:120px 6vw;max-width:1300px;margin:0 auto;}
+
+  /* hero */
+  .hero{
+    min-height:100vh;display:flex;flex-direction:column;justify-content:center;
+    padding-top:80px;
+  }
+  .tag{
+    display:inline-flex;align-items:center;gap:8px;
+    border:1px solid var(--border);color:var(--accent);
+    font-family:'Share Tech Mono',monospace;font-size:0.8rem;
+    padding:6px 14px;border-radius:30px;width:fit-content;margin-bottom:28px;
+    background:rgba(0,255,194,0.04);
+  }
+  .tag::before{content:'●';color:var(--accent);animation:pulse 1.5s infinite;}
+  h1.hero-title{
+    font-family:'Orbitron',sans-serif;font-weight:900;
+    font-size:clamp(2.4rem,6.5vw,5rem);line-height:1.05;color:#fff;
+    max-width:900px;
+  }
+  h1.hero-title span{
+    background:linear-gradient(90deg,var(--accent),var(--accent-2));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .hero p.lead{
+    max-width:640px;margin-top:26px;font-size:1.08rem;line-height:1.75;color:var(--text-dim);
+  }
+  .hero-cta{display:flex;gap:18px;margin-top:42px;flex-wrap:wrap;}
+  .btn{
+    font-family:'Share Tech Mono',monospace;letter-spacing:1px;text-transform:uppercase;
+    padding:14px 30px;border-radius:4px;font-size:0.85rem;cursor:pointer;text-decoration:none;
+    display:inline-flex;align-items:center;gap:10px;transition:all .25s;border:1px solid transparent;
+  }
+  .btn-primary{background:var(--accent);color:#001510;font-weight:700;box-shadow:var(--glow);}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 30px rgba(0,255,194,0.55);}
+  .btn-outline{border-color:var(--border);color:var(--text);}
+  .btn-outline:hover{border-color:var(--accent);color:var(--accent);}
+
+  .hero-stats{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:90px;
+    border-top:1px solid var(--border);padding-top:34px;max-width:1000px;
+  }
+  .stat h3{font-family:'Orbitron',sans-serif;font-size:2.1rem;color:var(--accent);}
+  .stat span{display:block;font-size:0.78rem;color:var(--text-dim);margin-top:6px;letter-spacing:.5px;}
+
+  /* section headers */
+  .eyebrow{
+    font-family:'Share Tech Mono',monospace;color:var(--accent-2);font-size:0.8rem;
+    letter-spacing:3px;text-transform:uppercase;margin-bottom:14px;display:block;
+  }
+  h2.section-title{
+    font-family:'Orbitron',sans-serif;font-weight:700;color:#fff;
+    font-size:clamp(1.8rem,3.5vw,2.6rem);margin-bottom:20px;max-width:750px;
+  }
+  .section-desc{color:var(--text-dim);max-width:680px;line-height:1.75;margin-bottom:60px;font-size:1.02rem;}
+
+  /* what is a firewall - diagram */
+  .diagram-wrap{
+    display:grid;grid-template-columns:1.1fr 1fr;gap:60px;align-items:center;
+  }
+  .fw-diagram{
+    background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:36px;
+    position:relative;overflow:hidden;
+  }
+  .fw-diagram::before{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(120deg, transparent 40%, rgba(0,255,194,0.06) 50%, transparent 60%);
+    background-size:200% 200%;animation:sheen 5s infinite linear;
+  }
+  @keyframes sheen{0%{background-position:200% 0;}100%{background-position:-200% 0;}}
+  .zone{
+    display:flex;align-items:center;justify-content:space-between;
+    position:relative;z-index:2;
+  }
+  .zone-box{
+    flex:1;text-align:center;padding:22px 12px;border-radius:10px;font-family:'Share Tech Mono',monospace;font-size:0.85rem;
+  }
+  .zone-box.internet{background:rgba(255,59,92,0.08);border:1px solid rgba(255,59,92,0.35);color:#ff8fa3;}
+  .zone-box.internal{background:rgba(0,255,194,0.08);border:1px solid rgba(0,255,194,0.35);color:#7dffdc;}
+  .wall{
+    width:64px;height:160px;border-radius:8px;
+    background:repeating-linear-gradient(45deg,#0e1c22,#0e1c22 6px,#132b30 6px,#132b30 12px);
+    border:1px solid var(--accent);
+    display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;
+    box-shadow:0 0 25px rgba(0,255,194,0.25);
+    position:relative;z-index:2;
+  }
+  .wall span{writing-mode:vertical-rl;font-family:'Orbitron',sans-serif;font-size:0.7rem;letter-spacing:2px;color:var(--accent);}
+  .packets{position:relative;height:26px;margin:18px 0;z-index:2;}
+  .packet{
+    position:absolute;top:0;width:10px;height:10px;border-radius:2px;
+    animation:travel 3s linear infinite;
+  }
+  .packet.allow{background:var(--accent);box-shadow:0 0 8px var(--accent);}
+  .packet.block{background:var(--danger);box-shadow:0 0 8px var(--danger);}
+  @keyframes travel{
+    0%{left:0%;opacity:0;}
+    10%{opacity:1;}
+    45%{left:45%;opacity:1;}
+    50%{opacity:1;}
+    55%{left:55%;opacity:1;}
+    90%{opacity:1;}
+    100%{left:100%;opacity:0;}
+  }
+  .legend{display:flex;gap:22px;margin-top:10px;font-size:0.78rem;color:var(--text-dim);font-family:'Share Tech Mono',monospace;position:relative;z-index:2;}
+  .legend span{display:inline-flex;align-items:center;gap:8px;}
+  .dotlg{width:9px;height:9px;border-radius:2px;display:inline-block;}
+
+  .diagram-copy h3{font-family:'Orbitron',sans-serif;color:#fff;font-size:1.3rem;margin-bottom:14px;}
+  .diagram-copy p{color:var(--text-dim);line-height:1.8;margin-bottom:16px;}
+  .diagram-copy ul{margin-top:18px;}
+  .diagram-copy li{
+    list-style:none;padding-left:26px;position:relative;color:var(--text);line-height:1.7;margin-bottom:10px;font-size:0.95rem;
+  }
+  .diagram-copy li::before{
+    content:'▹';position:absolute;left:0;color:var(--accent);font-weight:700;
+  }
+
+  /* effects grid */
+  .effects-grid{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:26px;
+  }
+  .effect-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:30px 26px;
+    transition:transform .3s, border-color .3s, box-shadow .3s;position:relative;overflow:hidden;
+  }
+  .effect-card:hover{transform:translateY(-6px);border-color:var(--accent);box-shadow:0 15px 40px rgba(0,255,194,0.12);}
+  .effect-card .num{
+    font-family:'Orbitron',sans-serif;font-size:0.75rem;color:var(--accent);letter-spacing:2px;margin-bottom:16px;display:block;
+  }
+  .effect-card h3{font-family:'Orbitron',sans-serif;font-size:1.1rem;color:#fff;margin-bottom:12px;}
+  .effect-card p{color:var(--text-dim);line-height:1.7;font-size:0.93rem;}
+  .icon-box{
+    width:46px;height:46px;border-radius:10px;background:rgba(0,255,194,0.08);
+    border:1px solid rgba(0,255,194,0.3);display:flex;align-items:center;justify-content:center;
+    margin-bottom:18px;color:var(--accent);font-size:1.3rem;
+  }
+
+  /* threats / why necessary */
+  .threat-section{background:var(--bg-1);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+  .threat-list{display:flex;flex-direction:column;gap:0;}
+  .threat-row{
+    display:grid;grid-template-columns:70px 1fr 140px;align-items:center;gap:24px;
+    padding:26px 10px;border-bottom:1px solid var(--border);transition:background .25s;
+  }
+  .threat-row:hover{background:rgba(0,255,194,0.03);}
+  .threat-row .idx{font-family:'Orbitron',sans-serif;color:var(--text-dim);font-size:1rem;}
+  .threat-row h4{color:#fff;font-family:'Inter',sans-serif;font-weight:600;margin-bottom:6px;font-size:1.02rem;}
+  .threat-row p{color:var(--text-dim);font-size:0.88rem;line-height:1.6;}
+  .severity{
+    font-family:'Share Tech Mono',monospace;font-size:0.72rem;padding:6px 12px;border-radius:20px;
+    text-align:center;letter-spacing:1px;text-transform:uppercase;justify-self:end;
+  }
+  .sev-critical{background:rgba(255,59,92,0.12);color:var(--danger);border:1px solid rgba(255,59,92,0.4);}
+  .sev-high{background:rgba(255,176,32,0.12);color:var(--warn);border:1px solid rgba(255,176,32,0.4);}
+  .sev-medium{background:rgba(0,179,255,0.12);color:var(--accent-2);border:1px solid rgba(0,179,255,0.4);}
+
+  /* types */
+  .types-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;}
+  .type-card{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+    border:1px solid var(--border);border-radius:12px;padding:28px 22px;text-align:left;
+  }
+  .type-card .tier{font-family:'Share Tech Mono',monospace;color:var(--accent-2);font-size:0.72rem;letter-spacing:2px;}
+  .type-card h4{font-family:'Orbitron',sans-serif;color:#fff;font-size:1.02rem;margin:10px 0 12px;}
+  .type-card p{color:var(--text-dim);font-size:0.88rem;line-height:1.65;}
+
+  /* stats band */
+  .stats-band{
+    background:var(--bg-2);border-radius:16px;border:1px solid var(--border);
+    padding:60px 40px;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;text-align:center;
+    position:relative;overflow:hidden;
+  }
+  .stats-band .stat h3{font-size:2.6rem;}
+
+  /* CTA */
+  .cta{
+    text-align:center;background:radial-gradient(circle at 50% 0%, rgba(0,255,194,0.08), transparent 60%);
+    border-radius:20px;border:1px solid var(--border);padding:90px 40px;
+  }
+  .cta h2{font-family:'Orbitron',sans-serif;font-size:clamp(1.6rem,3.5vw,2.4rem);color:#fff;margin-bottom:18px;}
+  .cta p{color:var(--text-dim);max-width:600px;margin:0 auto 34px;line-height:1.7;}
+
+  footer{
+    border-top:1px solid var(--border);padding:40px 6vw;text-align:center;color:var(--text-dim);
+    font-size:0.82rem;font-family:'Share Tech Mono',monospace;position:relative;z-index:5;
+  }
+  footer a{color:var(--accent);text-decoration:none;}
+
+  @media (max-width:980px){
+    .diagram-wrap{grid-template-columns:1fr;}
+    .effects-grid{grid-template-columns:repeat(2,1fr);}
+    .types-grid{grid-template-columns:repeat(2,1fr);}
+    .stats-band{grid-template-columns:repeat(2,1fr);}
+    .hero-stats{grid-template-columns:repeat(2,1fr);}
+  }
+  @media (max-width:720px){
+    nav ul{display:none;}
+    .nav-toggle{display:block;}
+    .effects-grid{grid-template-columns:1fr;}
+    .types-grid{grid-template-columns:1fr;}
+    .threat-row{grid-template-columns:40px 1fr;grid-template-areas:"idx title" ". sev";}
+    .threat-row .severity{justify-self:start;margin-top:8px;}
+    section{padding:90px 6vw;}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="grid-canvas"></canvas>
+<div class="noise-overlay"></div>
+<div class="scanline"></div>
+
+<header>
+  <div class="logo"><span class="dot"></span>FIRE//WALL</div>
+  <nav><ul>
+    <li><a href="#what">What It Is</a></li>
+    <li><a href="#effects">Effects</a></li>
+    <li><a href="#threats">Threats</a></li>
+    <li><a href="#types">Types</a></li>
+    <li><a href="#stats">Stats</a></li>
+  </ul></nav>
+</header>
+
+<section class="hero" id="top">
+  <div class="tag">SYS_STATUS: PERIMETER MONITORING ACTIVE</div>
+  <h1 class="hero-title">The invisible wall keeping <span>your network alive.</span></h1>
+  <p class="lead">Every second, unseen traffic tries to slip past your devices — scanners, bots, and intrusion attempts probing for a way in. A firewall is the checkpoint that decides, packet by packet, what gets through and what gets stopped cold.</p>
+  <div class="hero-cta">
+    <a href="#what" class="btn btn-primary">Explore How It Works ↓</a>
+    <a href="#threats" class="btn btn-outline">See The Threats</a>
+  </div>
+  <div class="hero-stats">
+    <div class="stat"><h3 id="stat1">0</h3><span>Attacks blocked per minute globally (est.)</span></div>
+    <div class="stat"><h3 id="stat2">0%</h3><span>Of breaches involve an exposed, unfiltered port</span></div>
+    <div class="stat"><h3 id="stat3">0s</h3><span>Avg. time to first scan on an unprotected IP</span></div>
+    <div class="stat"><h3>24/7</h3><span>Continuous traffic inspection required</span></div>
+  </div>
+</section>
+
+<section id="what">
+  <span class="eyebrow">// 01 — The Fundamentals</span>
+  <h2 class="section-title">What a firewall actually does</h2>
+  <p class="section-desc">A firewall sits between trusted internal networks and untrusted external ones, inspecting every packet against a rule set — deciding in real time whether traffic is allowed through or blocked at the border.</p>
+
+  <div class="diagram-wrap">
+    <div class="fw-diagram">
+      <div class="zone">
+        <div class="zone-box internet">🌐<br>UNTRUSTED<br>INTERNET</div>
+        <div class="wall"><span>FIREWALL RULESET</span></div>
+        <div class="zone-box internal">🖥<br>TRUSTED<br>INTERNAL NET</div>
+      </div>
+      <div class="packets">
+        <div class="packet allow" style="animation-delay:0s;top:2px;"></div>
+        <div class="packet block" style="animation-delay:0.6s;top:2px;"></div>
+        <div class="packet allow" style="animation-delay:1.2s;top:2px;"></div>
+        <div class="packet allow" style="animation-delay:1.8s;top:2px;"></div>
+        <div class="packet block" style="animation-delay:2.4s;top:2px;"></div>
+      </div>
+      <div class="legend">
+        <span><i class="dotlg" style="background:var(--accent)"></i> Allowed traffic</span>
+        <span><i class="dotlg" style="background:var(--danger)"></i> Blocked at the wall</span>
+      </div>
+    </div>
+
+    <div class="diagram-copy">
+      <h3>A filter, a gatekeeper, and a record-keeper</h3>
+      <p>Firewalls operate on rules built from IP addresses, ports, protocols, and increasingly, application behavior. Traffic that doesn't match an "allow" rule is dropped by default — a principle called <em>default-deny</em>, the backbone of modern network security.</p>
+      <ul>
+        <li>Inspects packets at the network and transport layers</li>
+        <li>Enforces zone separation between internal and external systems</li>
+        <li>Logs connection attempts for forensic and compliance review</li>
+        <li>Can operate on hardware appliances, software, or in the cloud</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="effects">
+  <span class="eyebrow">// 02 — Measurable Impact</span>
+  <h2 class="section-title">The real effects of running a firewall</h2>
+  <p class="section-desc">Firewalls don't just "block bad stuff" — they measurably reshape a network's exposure, performance, and resilience. Here's what actually changes once one is properly deployed.</p>
+
+  <div class="effects-grid">
+    <div class="effect-card">
+      <div class="icon-box">🛡</div>
+      <span class="num">EFFECT / 01</span>
+      <h3>Shrinks the attack surface</h3>
+      <p>Closing every port and service not explicitly needed removes thousands of potential entry points automatically scanned by bots every day.</p>
+    </div>
+    <div class="effect-card">
+      <div class="icon-box">🚫</div>
+      <span class="num">EFFECT / 02</span>
+      <h3>Stops automated scanning cold</h3>
+      <p>Mass internet scanners probing for open, vulnerable services are silently dropped instead of receiving a response that confirms you exist.</p>
+    </div>
+    <div class="effect-card">
+      <div class="icon-box">📊</div>
+      <span class="num">EFFECT / 03</span>
+      <h3>Creates a visibility layer</h3>
+      <p>Every allowed and denied connection can be logged, giving security teams the forensic trail needed to detect and investigate intrusions.</p>
+    </div>
+    <div class="effect-card">
+      <div class="icon-box">🧩</div>
+      <span class="num">EFFECT / 04</span>
+      <h3>Segments the network</h3>
+      <p>Internal firewalls isolate sensitive systems (databases, finance, HR) so a breach in one segment can't freely spread to another.</p>
+    </div>
+    <div class="effect-card">
+      <div class="icon-box">⚙</div>
+      <span class="num">EFFECT / 05</span>
+      <h3>Enforces policy automatically</h3>
+      <p>Acceptable-use and compliance rules — blocked categories, restricted ports, geo-based access — are applied consistently without manual checks.</p>
+    </div>
+    <div class="effect-card">
+      <div class="icon-box">⚡</div>
+      <span class="num">EFFECT / 06</span>
+      <h3>Reduces noise on other defenses</h3>
+      <p>By filtering obvious junk traffic upfront, firewalls reduce the load on intrusion detection systems and antivirus tools further down the chain.</p>
+    </div>
+  </div>
+</section>
+
+<section class="threat-section" id="threats">
+  <span class="eyebrow">// 03 — Why It's Non-Negotiable</span>
+  <h2 class="section-title">What happens without one</h2>
+  <p class="section-desc">An unfiltered network isn't just "less safe" — it's actively and continuously targeted. These are the categories of risk a firewall exists specifically to neutralize.</p>
+
+  <div class="threat-list">
+    <div class="threat-row">
+      <span class="idx">01</span>
+      <div><h4>Unrestricted port exposure</h4><p>Every open service becomes discoverable by internet-wide scanning tools within minutes of going live, unprotected.</p></div>
+      <span class="severity sev-critical">Critical</span>
+    </div>
+    <div class="threat-row">
+      <span class="idx">02</span>
+      <div><h4>Lateral movement after compromise</h4><p>Without internal segmentation, one infected device can freely reach and infect every other machine on the same network.</p></div>
+      <span class="severity sev-critical">Critical</span>
+    </div>
+    <div class="threat-row">
+      <span class="idx">03</span>
+      <div><h4>Command-and-control callbacks</h4><p>Malware relies on outbound connections to attacker servers — egress filtering is often the only thing that catches this.</p></div>
+      <span class="severity sev-high">High</span>
+    </div>
+    <div class="threat-row">
+      <span class="idx">04</span>
+      <div><h4>Denial-of-service flooding</h4><p>Without rate-limiting and filtering at the perimeter, volumetric traffic can exhaust bandwidth and take services offline.</p></div>
+      <span class="severity sev-high">High</span>
+    </div>
+    <div class="threat-row">
+      <span class="idx">05</span>
+      <div><h4>Loss of audit trail</h4><p>Without connection logging, there's no way to reconstruct how an intrusion happened after the fact — investigations stall immediately.</p></div>
+      <span class="severity sev-medium">Medium</span>
+    </div>
+    <div class="threat-row">
+      <span class="idx">06</span>
+      <div><h4>Regulatory non-compliance</h4><p>Standards like PCI-DSS, HIPAA, and ISO 27001 explicitly require documented network boundary controls — firewalls are often mandatory.</p></div>
+      <span class="severity sev-medium">Medium</span>
+    </div>
+  </div>
+</section>
+
+<section id="types">
+  <span class="eyebrow">// 04 — Choosing Your Layer</span>
+  <h2 class="section-title">Not all firewalls work the same way</h2>
+  <p class="section-desc">Firewall technology has evolved through several generations, each inspecting traffic more deeply than the last.</p>
+
+  <div class="types-grid">
+    <div class="type-card">
+      <span class="tier">GEN 1</span>
+      <h4>Packet Filtering</h4>
+      <p>Checks source/destination IP, port, and protocol against static rules. Fast, but blind to context or payload content.</p>
+    </div>
+    <div class="type-card">
+      <span class="tier">GEN 2</span>
+      <h4>Stateful Inspection</h4>
+      <p>Tracks the state of active connections, so return traffic for a legitimate session is recognized instead of re-evaluated blindly.</p>
+    </div>
+    <div class="type-card">
+      <span class="tier">GEN 3</span>
+      <h4>Proxy / Application-Layer</h4>
+      <p>Fully terminates and re-establishes connections, inspecting actual application data such as HTTP requests before forwarding.</p>
+    </div>
+    <div class="type-card">
+      <span class="tier">GEN 4</span>
+      <h4>Next-Gen Firewall (NGFW)</h4>
+      <p>Combines deep packet inspection with intrusion prevention, identity awareness, and threat intelligence in a single engine.</p>
+    </div>
+  </div>
+</section>
+
+<section id="stats">
+  <span class="eyebrow">// 05 — By The Numbers</span>
+  <h2 class="section-title">Why organizations treat this as baseline infrastructure</h2>
+  <div class="stats-band">
+    <div class="stat"><h3>#1</h3><span>Most recommended baseline security control by security frameworks</span></div>
+    <div class="stat"><h3>Layer 3–7</h3><span>Range of the OSI stack modern firewalls can inspect</span></div>
+    <div class="stat"><h3>Default-Deny</h3><span>The core principle behind every hardened network policy</span></div>
+    <div class="stat"><h3>Zero Trust</h3><span>The modern architecture model firewalls now underpin</span></div>
+  </div>
+</section>
+
+<section>
+  <div class="cta">
+    <span class="eyebrow" style="justify-content:center;display:block;">// Bottom Line</span>
+    <h2>A network without a firewall isn't undefended — it's unmonitored.</h2>
+    <p>Firewalls remain the first and most consistent layer of defense in any security architecture: filtering traffic, enforcing policy, segmenting risk, and generating the visibility every other security tool depends on.</p>
+    <a href="#top" class="btn btn-primary">Back To Top ↑</a>
+  </div>
+</section>
+
+<footer>
+  <p>FIRE//WALL — An educational overview of firewall technology and network security.</p>
+  <p style="margin-top:8px;">Built for learning purposes · <a href="https://github.com/" target="_blank" rel="noopener">View Source</a></p>
+</footer>
+
+<script>
+  // count-up stats
+  function countUp(el, target, suffix, duration){
+    let start = 0;
+    const startTime = performance.now();
+    function step(now){
+      const progress = Math.min((now - startTime) / duration, 1);
+      const value = Math.floor(progress * target);
+      el.textContent = value.toLocaleString() + suffix;
+      if(progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  const s1 = document.getElementById('stat1');
+  const s2 = document.getElementById('stat2');
+  const s3 = document.getElementById('stat3');
+  const observer = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        countUp(s1, 2300000, '', 1800);
+        countUp(s2, 63, '%', 1500);
+        countUp(s3, 60, 's', 1200);
+        observer.disconnect();
+      }
+    });
+  }, {threshold:0.4});
+  observer.observe(document.querySelector('.hero-stats'));
+
+  // animated grid background
+  const canvas = document.getElementById('grid-canvas');
+  const ctx = canvas.getContext('2d');
+  let w, h;
+  function resize(){
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const nodes = [];
+  const NODE_COUNT = Math.min(70, Math.floor(window.innerWidth / 22));
+  for(let i=0;i<NODE_COUNT;i++){
+    nodes.push({
+      x: Math.random()*w,
+      y: Math.random()*h,
+      vx: (Math.random()-0.5)*0.3,
+      vy: (Math.random()-0.5)*0.3
+    });
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle = '#04070a';
+    ctx.fillRect(0,0,w,h);
+
+    for(const n of nodes){
+      n.x += n.vx; n.y += n.vy;
+      if(n.x < 0 || n.x > w) n.vx *= -1;
+      if(n.y < 0 || n.y > h) n.vy *= -1;
+    }
+
+    for(let i=0;i<nodes.length;i++){
+      for(let j=i+1;j<nodes.length;j++){
+        const a = nodes[i], b = nodes[j];
+        const dx = a.x-b.x, dy = a.y-b.y;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if(dist < 140){
+          ctx.strokeStyle = `rgba(0,255,194,${0.12 * (1 - dist/140)})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+    for(const n of nodes){
+      ctx.fillStyle = 'rgba(0,255,194,0.55)';
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, 1.6, 0, Math.PI*2);
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+</script>
+
+</body>
+</html>
